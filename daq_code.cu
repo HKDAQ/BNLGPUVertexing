@@ -804,6 +804,7 @@ int gpu_daq_execute(){
       cudaThreadSynchronize();
       getLastCudaError("kernel_histo_one_thread_one_vertex execution failed\n");
     }else if( correct_mode == 8 ){
+      cudaThreadSetCacheConfig(cudaFuncCachePreferL1);
       setup_threads_for_histo_per(n_test_vertices);
       printf(" --- execute kernel to correct times and get n pmts per time bin \n");
       kernel_correct_times_and_get_histo_per_vertex_shared<<<number_of_kernel_blocks_3d,number_of_threads_per_block_3d,n_time_bins*sizeof(unsigned int)>>>(device_n_pmts_per_time_bin);
