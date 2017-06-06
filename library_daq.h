@@ -1701,13 +1701,13 @@ void write_output(){
     /* 	trigger ++; */
     /* } */
 
-    fprintf(of, " %d \n", trigger);
+    //fprintf(of, " %d \n", trigger);
 
     // output reconstructed vertices
-    /* for(std::vector<std::pair<unsigned int,unsigned int> >::const_iterator itrigger=trigger_pair_vertex_time.begin(); itrigger != trigger_pair_vertex_time.end(); ++itrigger){ */
-    /*   unsigned int triggertime = itrigger->second*time_step_size - time_offset; */
-    /*   fprintf(of, " %d %f %f %f %d \n", n_events, vertex_x[itrigger->first], vertex_y[itrigger->first], vertex_z[itrigger->first], triggertime); */
-    /* } */
+    for(std::vector<std::pair<unsigned int,unsigned int> >::const_iterator itrigger=trigger_pair_vertex_time.begin(); itrigger != trigger_pair_vertex_time.end(); ++itrigger){
+      unsigned int triggertime = itrigger->second*time_step_size - time_offset;
+      fprintf(of, " %d %f %f %f %d \n", n_events, vertex_x[itrigger->first], vertex_y[itrigger->first], vertex_z[itrigger->first], triggertime);
+    }
 
 
     /* // output non-corrected and corrected times for best vertex */
