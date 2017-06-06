@@ -11,6 +11,8 @@
 #include <thrust/extrema.h>
 #include <limits>
 #include <limits.h>
+#include <thrust/sort.h>
+#include <thrust/device_ptr.h>
 
 /////////////////////////////
 // define global variables //
@@ -48,8 +50,8 @@ unsigned int number_of_threads_per_block; // number of threads per core to be us
 dim3 number_of_threads_per_block_3d;
 unsigned int grid_size;  // grid = (n cores) X (n threads / core)
 /// hits
-double time_offset;  // ns, offset to make times positive
-__constant__ double constant_time_offset;
+unsigned short time_offset;  // ns, offset to make times positive
+__constant__ unsigned short constant_time_offset;
 unsigned int n_time_bins; // number of time bins 
 __constant__ unsigned int constant_n_time_bins;
 unsigned int n_direction_bins_theta; // number of direction bins 
@@ -82,11 +84,11 @@ double speed_light_water;
 double cerenkov_angle_water;
 double twopi;
 bool cylindrical_grid;
-float *device_times_of_flight; // time of flight between a vertex and a pmt
-float *host_times_of_flight;
+unsigned short *device_times_of_flight; // time of flight between a vertex and a pmt
+unsigned short *host_times_of_flight;
 bool *device_directions_for_vertex_and_pmt; // test directions for vertex and pmt
 bool *host_directions_for_vertex_and_pmt;
-texture<float, 1, cudaReadModeElementType> tex_times_of_flight;
+texture<unsigned short, 1, cudaReadModeElementType> tex_times_of_flight;
 //texture<bool, 1, cudaReadModeElementType> tex_directions_for_vertex_and_pmt;
 // triggers
 std::vector<std::pair<unsigned int,unsigned int> > candidate_trigger_pair_vertex_time;  // pair = (v, t) = (a vertex, a time at the end of the 2nd of two coalesced bins)
@@ -207,6 +209,7 @@ void read_user_parameters_nhits();
 void check_cudamalloc_float(unsigned int size);
 void check_cudamalloc_int(unsigned int size);
 void check_cudamalloc_unsigned_int(unsigned int size);
+void check_cudamalloc_unsigned_short(unsigned int size);
 void check_cudamalloc_bool(unsigned int size);
 void setup_threads_for_histo(unsigned int n);
 unsigned int find_greatest_divisor(unsigned int n, unsigned int max);
@@ -769,8 +772,8 @@ bool read_the_input(){
 void allocate_tofs_memory_on_device(){
 
   printf(" --- allocate memory tofs \n");
-  check_cudamalloc_float(n_test_vertices*n_PMTs);
-  checkCudaErrors(cudaMalloc((void **)&device_times_of_flight, n_test_vertices*n_PMTs*sizeof(float)));
+  check_cudamalloc_unsigned_short(n_test_vertices*n_PMTs);
+  checkCudaErrors(cudaMalloc((void **)&device_times_of_flight, n_test_vertices*n_PMTs*sizeof(unsigned short)));
   /*
   if( n_hits*n_test_vertices > available_memory ){
     printf(" cannot allocate vector of %d, available_memory %d \n", n_hits*n_test_vertices, available_memory);
@@ -952,20 +955,25 @@ void allocate_candidates_memory_on_device(){
 void make_table_of_tofs(){
 
   printf(" --- fill times_of_flight \n");
-  host_times_of_flight = (float*)malloc(n_test_vertices*n_PMTs * sizeof(double));
+  host_times_of_flight = (unsigned short*)malloc(n_test_vertices*n_PMTs * sizeof(unsigned short));
   printf(" speed_light_water %f \n", speed_light_water);
   unsigned int distance_index;
   time_offset = 0.;
+  float offset_f = 0.;
   for(unsigned int ip=0; ip<n_PMTs; ip++){
     for(unsigned int iv=0; iv<n_test_vertices; iv++){
       distance_index = get_distance_index(ip + 1, n_PMTs*iv);
+      float temp = sqrt(pow(vertex_x[iv] - PMT_x[ip],2) + pow(vertex_y[iv] - PMT_y[ip],2) + pow(vertex_z[iv] - PMT_z[ip],2))/speed_light_water;
+      //printf("short %d int %d float %f\n", (short)temp, (int)temp, temp);
       host_times_of_flight[distance_index] = sqrt(pow(vertex_x[iv] - PMT_x[ip],2) + pow(vertex_y[iv] - PMT_y[ip],2) + pow(vertex_z[iv] - PMT_z[ip],2))/speed_light_water;
-      if( host_times_of_flight[distance_index] > time_offset )
-	time_offset = host_times_of_flight[distance_index];
-
+      if( host_times_of_flight[distance_index] >= time_offset ) {
+	time_offset = host_times_of_flight[distance_index] + 1;
+	offset_f = temp;
+      }
     }
   }
   //print_times_of_flight();
+  printf("short %d int %d float %f\n", (short)offset_f, (int)offset_f, offset_f);
 
   return;
 }
@@ -1024,7 +1032,7 @@ void fill_tofs_memory_on_device(){
   printf(" --- copy tofs from host to device \n");
   checkCudaErrors(cudaMemcpy(device_times_of_flight,
 			     host_times_of_flight,
-			     n_test_vertices*n_PMTs*sizeof(float),
+			     n_test_vertices*n_PMTs*sizeof(unsigned short),
 			     cudaMemcpyHostToDevice));
   checkCudaErrors( cudaMemcpyToSymbol(constant_time_step_size, &time_step_size, sizeof(time_step_size)) );
   checkCudaErrors( cudaMemcpyToSymbol(constant_n_test_vertices, &n_test_vertices, sizeof(n_test_vertices)) );
@@ -1032,7 +1040,7 @@ void fill_tofs_memory_on_device(){
   checkCudaErrors( cudaMemcpyToSymbol(constant_n_PMTs, &n_PMTs, sizeof(n_PMTs)) );
 
   // Bind the array to the texture
-  checkCudaErrors(cudaBindTexture(0,tex_times_of_flight, device_times_of_flight, n_test_vertices*n_PMTs*sizeof(float)));
+  checkCudaErrors(cudaBindTexture(0,tex_times_of_flight, device_times_of_flight, n_test_vertices*n_PMTs*sizeof(unsigned short)));
   
 
 
@@ -1087,6 +1095,12 @@ void fill_correct_memory_on_device(){
   checkCudaErrors(cudaBindTexture(0,tex_ids, device_ids, n_hits*sizeof(unsigned int)));
   checkCudaErrors(cudaBindTexture(0,tex_times, device_times, n_hits*sizeof(unsigned int)));
 
+  //wrap raw pointer with a device_ptr to use with Thrust functions                                              
+  thrust::device_ptr<unsigned int> dev_data_ptr(device_times);
+  thrust::device_ptr<unsigned int> dev_keys_ptr(device_ids);
+
+  //use the device memory with a thrust call                                                                      
+  thrust::sort_by_key(dev_keys_ptr, dev_keys_ptr + n_hits, dev_data_ptr);
 
   return;
 }
@@ -1890,6 +1904,17 @@ void check_cudamalloc_unsigned_int(unsigned int size){
 
 }
 
+void check_cudamalloc_unsigned_short(unsigned int size){
+
+  unsigned int bytes_per_unsigned_short = 2;
+  size_t available_memory, total_memory;
+  cudaMemGetInfo(&available_memory, &total_memory);
+  if( size*bytes_per_unsigned_short > available_memory*1000/1024 ){
+    printf(" cannot allocate %d unsigned_shorts, or %d B, available %d B \n", 
+	   size, size*bytes_per_unsigned_short, available_memory*1000/1024);
+  }
+
+}
 
 void check_cudamalloc_bool(unsigned int size){
 
