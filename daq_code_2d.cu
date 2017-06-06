@@ -366,6 +366,9 @@ __global__ void kernel_histo_per_vertex_shared( unsigned int *ct, unsigned int *
 
 }
 
+
+//ben here
+
 __global__ void kernel_correct_times_and_get_histo_per_vertex_shared(unsigned int *ct){
 
   unsigned int vertex_index = blockIdx.x;
@@ -381,6 +384,7 @@ __global__ void kernel_correct_times_and_get_histo_per_vertex_shared(unsigned in
   unsigned int time_offset = vertex_index*constant_n_time_bins;
 
   extern __shared__ unsigned int temp[];
+
   while( local_ihit<constant_n_time_bins ){
     temp[local_ihit] = 0;
     local_ihit += stride_block;
@@ -390,7 +394,24 @@ __global__ void kernel_correct_times_and_get_histo_per_vertex_shared(unsigned in
 
   while( hit_index<constant_n_hits){
 
-    bin = get_time_bin_for_vertex_and_hit(vertex_index, hit_index);
+    //bin = get_time_bin_for_vertex_and_hit_v1(times, ids, times_of_flight, vertex_index, hit_index, 
+    //const_n_test_vertices, const_n_hits, const_n_time_bins, const_n_PMTs, const_time_offset, const_time_step_size);
+    
+    // skip if thread is assigned to nonexistent vertex
+    //if( vertex_index >= const_n_test_vertices || hit_index >= const_n_hits ) bin = -1;
+
+    unsigned int vertex_block = const_n_time_bins*vertex_index;
+
+    unsigned int vertex_block2 = const_n_PMTs*vertex_index;
+    unsigned int v1 = *(times + hit_index);
+    unsigned int v2 = *(ids + hit_index) + vertex_block2 - 1;
+    float v3 = *(times_of_flight + v2);//302.358032; //*(times_of_flight + v2);
+    //if(blockIdx.x==0)
+    //printf("v3=%f\n", v3);
+    unsigned int v4 = (v1 - v3 + const_time_offset)/const_time_step_size;
+
+    bin = (v4+vertex_block);
+
     atomicAdd(&temp[bin - time_offset],1);
     hit_index += stride;
 
