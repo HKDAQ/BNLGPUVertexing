@@ -4,7 +4,8 @@ LIB	:= -L$(CUDA_ROOT)/lib64 -lcudart
 
 # NVCCFLAGS	:= -lineinfo -arch=sm_20 --ptxas-options=-v --use_fast_math
 # NVCCFLAGS	:= -lineinfo -arch=sm_50 --ptxas-options=-v --use_fast_math
-NVCCFLAGS     := -lineinfo -arch=$(GPU_ARCH_TYPE) --ptxas-options=-v --use_fast_math
+#NVCCFLAGS     := -lineinfo -arch=$(GPU_ARCH_TYPE) --ptxas-options=-v --use_fast_math
+NVCCFLAGS     := -lineinfo -arch=sm_35 --ptxas-options=-v --use_fast_math
 
 all:	daq_code daq_nhits inspect_gpu
 

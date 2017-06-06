@@ -13,8 +13,11 @@
 #include <sys/time.h>
 #include <library_daq.h>
 
-
 // CUDA = Computer Device Unified Architecture
+__device__ int get_time_bin_for_vertex_and_hit_v1(unsigned int* times, unsigned int* ids, float* times_of_flight, 
+		unsigned int vertex_index, unsigned int hit_index, 
+   		unsigned int const_n_test_vertices, unsigned int const_n_hits, unsigned int const_n_time_bins, 
+		unsigned int const_n_PMTs, double const_time_offset, unsigned int const_time_step_size);
 
 __global__ void kernel_correct_times_and_get_n_pmts_per_time_bin(unsigned int *ct);
 __global__ void kernel_correct_times_and_get_n_pmts_per_time_bin_and_direction_bin(unsigned int *ct, bool * dirs);
@@ -27,7 +30,9 @@ __device__ int get_time_bin_for_vertex_and_hit(unsigned int vertex_index, unsign
 __global__ void kernel_histo_stride_2d( unsigned int *ct, unsigned int *histo);
 __global__ void kernel_histo_per_vertex( unsigned int *ct, unsigned int *histo);
 __global__ void kernel_histo_per_vertex_shared( unsigned int *ct, unsigned int *histo);
-__global__ void kernel_correct_times_and_get_histo_per_vertex_shared(unsigned int *ct);
+__global__ void kernel_correct_times_and_get_histo_per_vertex_shared(unsigned int *ct, unsigned int* times, unsigned int* ids, float* times_of_flight,
+				 unsigned int const_n_test_vertices, unsigned int const_n_time_bins, unsigned int const_n_hits,
+     				 unsigned int const_n_PMTs, double const_time_offset, unsigned int const_time_step_size);
 
 int gpu_daq_initialize();
 int gpu_daq_execute();
@@ -49,7 +54,7 @@ int main()
 
 
 
-  return 1;
+  return 0;
 }
 
 
@@ -176,6 +181,30 @@ __device__ int get_time_bin_for_vertex_and_hit(unsigned int vertex_index, unsign
 			       ,
 			       vertex_block
 			       );
+  
+
+}
+
+__device__ int get_time_bin_for_vertex_and_hit_v1(unsigned int* times, unsigned int* ids, float* times_of_flight,
+		unsigned int vertex_index, unsigned int hit_index, 
+   		unsigned int const_n_test_vertices, unsigned int const_n_hits, unsigned int const_n_time_bins, 
+		unsigned int const_n_PMTs, double const_time_offset, unsigned int const_time_step_size){
+
+  // skip if thread is assigned to nonexistent vertex
+  if( vertex_index >= const_n_test_vertices ) return -1;
+
+  // skip if thread is assigned to nonexistent hit
+  if( hit_index >= const_n_hits ) return -1;
+
+  unsigned int vertex_block = const_n_time_bins*vertex_index;
+
+  unsigned int vertex_block2 = const_n_PMTs*vertex_index;
+  unsigned int v1 = *(times + hit_index);
+  unsigned int v2 = *(ids + hit_index) + vertex_block2 - 1;
+  float v3 = *(times_of_flight + v2);
+  unsigned int v4 = (v1 - v3 + const_time_offset)/const_time_step_size;
+
+  return (v4+vertex_block);
   
 
 }
@@ -366,36 +395,35 @@ __global__ void kernel_histo_per_vertex_shared( unsigned int *ct, unsigned int *
 
 }
 
-
-//ben here
-
-__global__ void kernel_correct_times_and_get_histo_per_vertex_shared(unsigned int *ct){
+__global__ void kernel_correct_times_and_get_histo_per_vertex_shared(unsigned int *ct, unsigned int* times, unsigned int* ids, float* times_of_flight,
+     unsigned int const_n_test_vertices, unsigned int const_n_time_bins, unsigned int const_n_hits, 
+     unsigned int const_n_PMTs, double const_time_offset, unsigned int const_time_step_size)
+{
 
   unsigned int vertex_index = blockIdx.x;
-  if( vertex_index >= constant_n_test_vertices ) return;
+  if( vertex_index >= const_n_test_vertices ) return;
 
   unsigned int local_ihit_initial = threadIdx.x + threadIdx.y*blockDim.x;
   unsigned int local_ihit = local_ihit_initial;
   unsigned int stride_block = blockDim.x*blockDim.y;
   unsigned int stride = stride_block*gridDim.y;
-  unsigned int hit_index = local_ihit + stride_block*blockIdx.y;
+  unsigned int hit_index = threadIdx.x + threadIdx.y*blockDim.x + stride_block*blockIdx.y;
 
   unsigned int bin;
-  unsigned int time_offset = vertex_index*constant_n_time_bins;
+  unsigned int time_offset = vertex_index*const_n_time_bins;
 
   extern __shared__ unsigned int temp[];
-
-  while( local_ihit<constant_n_time_bins ){
+  while( local_ihit<const_n_time_bins ){
     temp[local_ihit] = 0;
     local_ihit += stride_block;
   }
 
   __syncthreads();
 
-  while( hit_index<constant_n_hits){
-
+  while( hit_index<const_n_hits){
+    
     //bin = get_time_bin_for_vertex_and_hit_v1(times, ids, times_of_flight, vertex_index, hit_index, 
-    //const_n_test_vertices, const_n_hits, const_n_time_bins, const_n_PMTs, const_time_offset, const_time_step_size);
+    //			const_n_test_vertices, const_n_hits, const_n_time_bins, const_n_PMTs, const_time_offset, const_time_step_size);
     
     // skip if thread is assigned to nonexistent vertex
     //if( vertex_index >= const_n_test_vertices || hit_index >= const_n_hits ) bin = -1;
@@ -405,9 +433,9 @@ __global__ void kernel_correct_times_and_get_histo_per_vertex_shared(unsigned in
     unsigned int vertex_block2 = const_n_PMTs*vertex_index;
     unsigned int v1 = *(times + hit_index);
     unsigned int v2 = *(ids + hit_index) + vertex_block2 - 1;
-    float v3 = *(times_of_flight + v2);//302.358032; //*(times_of_flight + v2);
+    float v3 = *(times_of_flight + v2);
     //if(blockIdx.x==0)
-    //printf("v3=%f\n", v3);
+    //	printf("v3=%f\n", v3);
     unsigned int v4 = (v1 - v3 + const_time_offset)/const_time_step_size;
 
     bin = (v4+vertex_block);
@@ -420,7 +448,7 @@ __global__ void kernel_correct_times_and_get_histo_per_vertex_shared(unsigned in
   __syncthreads();
 
   local_ihit = local_ihit_initial;
-  while( local_ihit<constant_n_time_bins ){
+  while( local_ihit<const_n_time_bins ){
     atomicAdd( &ct[local_ihit+time_offset], temp[local_ihit]);
     local_ihit += stride_block;
   }
@@ -828,7 +856,9 @@ int gpu_daq_execute(){
     }else if( correct_mode == 8 ){
       setup_threads_for_histo_per(n_test_vertices);
       printf(" --- execute kernel to correct times and get n pmts per time bin \n");
-      kernel_correct_times_and_get_histo_per_vertex_shared<<<number_of_kernel_blocks_3d,number_of_threads_per_block_3d,n_time_bins*sizeof(unsigned int)>>>(device_n_pmts_per_time_bin);
+      kernel_correct_times_and_get_histo_per_vertex_shared<<<number_of_kernel_blocks_3d,number_of_threads_per_block_3d,n_time_bins*sizeof(unsigned int)>>>
+				(device_n_pmts_per_time_bin, device_times, device_ids, device_times_of_flight, 
+				   n_test_vertices, n_time_bins, n_hits, n_PMTs, time_offset, time_step_size);
       cudaThreadSynchronize();
       getLastCudaError("kernel_correct_times_and_get_histo_per_vertex_shared execution failed\n");
     }else if( correct_mode == 9 ){
