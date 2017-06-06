@@ -86,7 +86,7 @@ unsigned short *device_times_of_flight; // time of flight between a vertex and a
 unsigned short *host_times_of_flight;
 bool *device_directions_for_vertex_and_pmt; // test directions for vertex and pmt
 bool *host_directions_for_vertex_and_pmt;
-texture<float, 1, cudaReadModeElementType> tex_times_of_flight;
+texture<unsigned short, 1, cudaReadModeElementType> tex_times_of_flight;
 //texture<bool, 1, cudaReadModeElementType> tex_directions_for_vertex_and_pmt;
 // triggers
 std::vector<std::pair<unsigned int,unsigned int> > candidate_trigger_pair_vertex_time;  // pair = (v, t) = (a vertex, a time at the end of the 2nd of two coalesced bins)
@@ -207,6 +207,7 @@ void read_user_parameters_nhits();
 void check_cudamalloc_float(unsigned int size);
 void check_cudamalloc_int(unsigned int size);
 void check_cudamalloc_unsigned_int(unsigned int size);
+void check_cudamalloc_unsigned_short(unsigned int size);
 void check_cudamalloc_bool(unsigned int size);
 void setup_threads_for_histo(unsigned int n);
 unsigned int find_greatest_divisor(unsigned int n, unsigned int max);
@@ -769,7 +770,7 @@ bool read_the_input(){
 void allocate_tofs_memory_on_device(){
 
   printf(" --- allocate memory tofs \n");
-  check_cudamalloc_unsigned_int(n_test_vertices*n_PMTs);
+  check_cudamalloc_unsigned_short(n_test_vertices*n_PMTs);
   checkCudaErrors(cudaMalloc((void **)&device_times_of_flight, n_test_vertices*n_PMTs*sizeof(unsigned short)));
   /*
   if( n_hits*n_test_vertices > available_memory ){
@@ -1895,6 +1896,17 @@ void check_cudamalloc_unsigned_int(unsigned int size){
 
 }
 
+void check_cudamalloc_unsigned_short(unsigned int size){
+
+  unsigned int bytes_per_unsigned_short = 2;
+  size_t available_memory, total_memory;
+  cudaMemGetInfo(&available_memory, &total_memory);
+  if( size*bytes_per_unsigned_short > available_memory*1000/1024 ){
+    printf(" cannot allocate %d unsigned_shorts, or %d B, available %d B \n", 
+	   size, size*bytes_per_unsigned_short, available_memory*1000/1024);
+  }
+
+}
 
 void check_cudamalloc_bool(unsigned int size){
 
