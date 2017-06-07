@@ -29,9 +29,9 @@ __device__ int get_time_bin_for_vertex_and_hit(unsigned int vertex_index, unsign
 __global__ void kernel_histo_stride_2d( unsigned int *ct, unsigned int *histo);
 __global__ void kernel_histo_per_vertex( unsigned int *ct, unsigned int *histo);
 __global__ void kernel_histo_per_vertex_shared( unsigned int *ct, unsigned int *histo);
-__global__ void kernel_correct_times_and_get_histo_per_vertex_shared(unsigned int *ct, unsigned int* times, unsigned int* ids, float* times_of_flight,
+__global__ void kernel_correct_times_and_get_histo_per_vertex_shared(unsigned int *ct, unsigned int* times, unsigned int* ids, unsigned short* times_of_flight,
 								     unsigned int const_n_test_vertices, unsigned int const_n_time_bins, unsigned int const_n_hits,
-								     unsigned int const_n_PMTs, double const_time_offset, unsigned int const_time_step_size);
+								     unsigned int const_n_PMTs, unsigned short const_time_offset, unsigned int const_time_step_size);
 
 int gpu_daq_initialize();
 int gpu_daq_execute();
@@ -393,9 +393,9 @@ __global__ void kernel_histo_per_vertex_shared( unsigned int *ct, unsigned int *
 
 }
 
-__global__ void kernel_correct_times_and_get_histo_per_vertex_shared(unsigned int *ct, unsigned int* times, unsigned int* ids, float* times_of_flight,
+__global__ void kernel_correct_times_and_get_histo_per_vertex_shared(unsigned int *ct, unsigned int* times, unsigned int* ids, unsigned short* times_of_flight,
 								     unsigned int const_n_test_vertices, unsigned int const_n_time_bins, unsigned int const_n_hits, 
-								     unsigned int const_n_PMTs, double const_time_offset, unsigned int const_time_step_size)
+								     unsigned int const_n_PMTs, unsigned short const_time_offset, unsigned int const_time_step_size)
 {
 
   unsigned int vertex_index = blockIdx.x;
