@@ -30,7 +30,7 @@ __device__ int get_time_bin_for_vertex_and_hit(unsigned int vertex_index, unsign
 __global__ void kernel_histo_stride_2d( unsigned int *ct, unsigned int *histo);
 __global__ void kernel_histo_per_vertex( unsigned int *ct, unsigned int *histo);
 __global__ void kernel_histo_per_vertex_shared( unsigned int *ct, unsigned int *histo);
-__global__ void kernel_correct_times_and_get_histo_per_vertex_shared(unsigned int *ct, unsigned int* times, unsigned int* ids, float* times_of_flight,
+__global__ void kernel_correct_times_and_get_histo_per_vertex_shared(unsigned short *ct, unsigned int* times, unsigned int* ids, float* times_of_flight,
 				 unsigned int const_n_test_vertices, unsigned int const_n_time_bins, unsigned int const_n_hits,
      				 unsigned int const_n_PMTs, double const_time_offset, unsigned int const_time_step_size);
 
@@ -395,7 +395,7 @@ __global__ void kernel_histo_per_vertex_shared( unsigned int *ct, unsigned int *
 
 }
 
-__global__ void kernel_correct_times_and_get_histo_per_vertex_shared(unsigned int *ct, unsigned int* times, unsigned int* ids, float* times_of_flight,
+__global__ void kernel_correct_times_and_get_histo_per_vertex_shared(unsigned short *ct, unsigned int* times, unsigned int* ids, float* times_of_flight,
      unsigned int const_n_test_vertices, unsigned int const_n_time_bins, unsigned int const_n_hits, 
      unsigned int const_n_PMTs, double const_time_offset, unsigned int const_time_step_size)
 {
@@ -412,9 +412,9 @@ __global__ void kernel_correct_times_and_get_histo_per_vertex_shared(unsigned in
   unsigned int bin;
   unsigned int time_offset = vertex_index*const_n_time_bins;
 
-  extern __shared__ unsigned int temp[];
+  extern __shared__ unsigned short stemp[];
   while( local_ihit<const_n_time_bins ){
-    temp[local_ihit] = 0;
+    stemp[local_ihit] = 0;
     local_ihit += stride_block;
   }
 
@@ -440,7 +440,7 @@ __global__ void kernel_correct_times_and_get_histo_per_vertex_shared(unsigned in
 
     bin = (v4+vertex_block);
 
-    atomicAdd(&temp[bin - time_offset],1);
+    atomicAdd(&stemp[bin - time_offset],1);
     hit_index += stride;
 
   }
@@ -449,7 +449,7 @@ __global__ void kernel_correct_times_and_get_histo_per_vertex_shared(unsigned in
 
   local_ihit = local_ihit_initial;
   while( local_ihit<const_n_time_bins ){
-    atomicAdd( &ct[local_ihit+time_offset], temp[local_ihit]);
+    atomicAdd( &ct[local_ihit+time_offset], stemp[local_ihit]);
     local_ihit += stride_block;
   }
 
