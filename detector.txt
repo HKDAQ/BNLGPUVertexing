@@ -1,1 +1,1 @@
-hits/detector_14.txt
+hits/detector_40.txt

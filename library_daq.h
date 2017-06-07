@@ -11,6 +11,8 @@
 #include <thrust/extrema.h>
 #include <limits>
 #include <limits.h>
+#include <thrust/sort.h>
+#include <thrust/device_ptr.h>
 
 /////////////////////////////
 // define global variables //
@@ -263,6 +265,8 @@ bool read_input(){
 
 
   the_max_time = max;
+
+  //  thrust::sort_by_key(host_ids, host_ids + n_hits, host_times);
 
   fclose(f);
   return true;
@@ -1087,6 +1091,12 @@ void fill_correct_memory_on_device(){
   checkCudaErrors(cudaBindTexture(0,tex_ids, device_ids, n_hits*sizeof(unsigned int)));
   checkCudaErrors(cudaBindTexture(0,tex_times, device_times, n_hits*sizeof(unsigned int)));
 
+  //wrap raw pointer with a device_ptr to use with Thrust functions
+  thrust::device_ptr<unsigned int> dev_data_ptr(device_times);
+  thrust::device_ptr<unsigned int> dev_keys_ptr(device_ids);
+
+  //use the device memory with a thrust call
+  thrust::sort_by_key(dev_keys_ptr, dev_keys_ptr + n_hits, dev_data_ptr);
 
   return;
 }

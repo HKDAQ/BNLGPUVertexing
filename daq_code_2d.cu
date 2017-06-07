@@ -400,6 +400,7 @@ __global__ void kernel_correct_times_and_get_histo_per_vertex_shared(unsigned in
      unsigned int const_n_PMTs, double const_time_offset, unsigned int const_time_step_size)
 {
 
+
   unsigned int vertex_index = blockIdx.x;
   if( vertex_index >= const_n_test_vertices ) return;
 
