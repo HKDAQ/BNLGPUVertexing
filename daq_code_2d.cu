@@ -17,7 +17,7 @@
 __device__ int get_time_bin_for_vertex_and_hit_v1(unsigned int* times, unsigned int* ids, float* times_of_flight, 
 		unsigned int vertex_index, unsigned int hit_index, 
    		unsigned int const_n_test_vertices, unsigned int const_n_hits, unsigned int const_n_time_bins, 
-		unsigned int const_n_PMTs, double const_time_offset, unsigned int const_time_step_size);
+		unsigned int const_n_PMTs, unsigned int const_time_offset, unsigned int const_time_step_size);
 
 __global__ void kernel_correct_times_and_get_n_pmts_per_time_bin(unsigned int *ct);
 __global__ void kernel_correct_times_and_get_n_pmts_per_time_bin_and_direction_bin(unsigned int *ct, bool * dirs);
@@ -32,7 +32,7 @@ __global__ void kernel_histo_per_vertex( unsigned int *ct, unsigned int *histo);
 __global__ void kernel_histo_per_vertex_shared( unsigned int *ct, unsigned int *histo);
 __global__ void kernel_correct_times_and_get_histo_per_vertex_shared(unsigned int *ct, unsigned int* times, unsigned int* ids, float* times_of_flight,
 				 unsigned int const_n_test_vertices, unsigned int const_n_time_bins, unsigned int const_n_hits,
-     				 unsigned int const_n_PMTs, double const_time_offset, unsigned int const_time_step_size);
+     				 unsigned int const_n_PMTs, unsigned int const_time_offset, unsigned int const_time_step_size);
 
 int gpu_daq_initialize();
 int gpu_daq_execute();
@@ -188,7 +188,7 @@ __device__ int get_time_bin_for_vertex_and_hit(unsigned int vertex_index, unsign
 __device__ int get_time_bin_for_vertex_and_hit_v1(unsigned int* times, unsigned int* ids, float* times_of_flight,
 		unsigned int vertex_index, unsigned int hit_index, 
    		unsigned int const_n_test_vertices, unsigned int const_n_hits, unsigned int const_n_time_bins, 
-		unsigned int const_n_PMTs, double const_time_offset, unsigned int const_time_step_size){
+		unsigned int const_n_PMTs, unsigned int const_time_offset, unsigned int const_time_step_size){
 
   // skip if thread is assigned to nonexistent vertex
   if( vertex_index >= const_n_test_vertices ) return -1;
@@ -397,65 +397,43 @@ __global__ void kernel_histo_per_vertex_shared( unsigned int *ct, unsigned int *
 
 __global__ void kernel_correct_times_and_get_histo_per_vertex_shared(unsigned int *ct, unsigned int* times, unsigned int* ids, float* times_of_flight,
      unsigned int const_n_test_vertices, unsigned int const_n_time_bins, unsigned int const_n_hits, 
-     unsigned int const_n_PMTs, double const_time_offset, unsigned int const_time_step_size)
+     unsigned int const_n_PMTs, unsigned int const_time_offset, unsigned int const_time_step_size)
 {
-
 
   unsigned int vertex_index = blockIdx.x;
   if( vertex_index >= const_n_test_vertices ) return;
-
   unsigned int local_ihit_initial = threadIdx.x + threadIdx.y*blockDim.x;
   unsigned int local_ihit = local_ihit_initial;
   unsigned int stride_block = blockDim.x*blockDim.y;
   unsigned int stride = stride_block*gridDim.y;
   unsigned int hit_index = threadIdx.x + threadIdx.y*blockDim.x + stride_block*blockIdx.y;
-
   unsigned int bin;
   unsigned int time_offset = vertex_index*const_n_time_bins;
-
   extern __shared__ unsigned int temp[];
   while( local_ihit<const_n_time_bins ){
     temp[local_ihit] = 0;
     local_ihit += stride_block;
   }
-
   __syncthreads();
-  
   unsigned int vertex_block = const_n_time_bins*vertex_index;
   unsigned int vertex_block2 = const_n_PMTs*vertex_index;
   unsigned int v1, v2, v4;
   float v3;
-
   while( hit_index<const_n_hits){
-    
-    //bin = get_time_bin_for_vertex_and_hit_v1(times, ids, times_of_flight, vertex_index, hit_index, 
-    //			const_n_test_vertices, const_n_hits, const_n_time_bins, const_n_PMTs, const_time_offset, const_time_step_size);
-    
-    // skip if thread is assigned to nonexistent vertex
-    //if( vertex_index >= const_n_test_vertices || hit_index >= const_n_hits ) bin = -1;
-
     v1 = *(times + hit_index);
     v2 = *(ids + hit_index) + vertex_block2 - 1;
     v3 = *(times_of_flight + v2);
     v4 = (v1 - v3 + const_time_offset)/const_time_step_size;
-
     bin = (v4+vertex_block);
-
     atomicAdd(&temp[bin - time_offset],1);
-
     hit_index += stride;
-
   }
-
   __syncthreads();
-
   local_ihit = local_ihit_initial;
   while( local_ihit<const_n_time_bins ){
     atomicAdd( &ct[local_ihit+time_offset], temp[local_ihit]);
     local_ihit += stride_block;
   }
-
-
 }
 
 

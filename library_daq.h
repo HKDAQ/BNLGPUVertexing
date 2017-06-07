@@ -50,8 +50,8 @@ unsigned int number_of_threads_per_block; // number of threads per core to be us
 dim3 number_of_threads_per_block_3d;
 unsigned int grid_size;  // grid = (n cores) X (n threads / core)
 /// hits
-double time_offset;  // ns, offset to make times positive
-__constant__ double constant_time_offset;
+unsigned int time_offset;  // ns, offset to make times positive
+__constant__ unsigned int constant_time_offset;
 unsigned int n_time_bins; // number of time bins 
 __constant__ unsigned int constant_n_time_bins;
 unsigned int n_direction_bins_theta; // number of direction bins 
