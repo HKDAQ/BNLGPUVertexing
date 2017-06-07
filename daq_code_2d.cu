@@ -420,6 +420,11 @@ __global__ void kernel_correct_times_and_get_histo_per_vertex_shared(unsigned in
   }
 
   __syncthreads();
+  
+  unsigned int vertex_block = const_n_time_bins*vertex_index;
+  unsigned int vertex_block2 = const_n_PMTs*vertex_index;
+  unsigned int v1, v2, v4;
+  float v3;
 
   while( hit_index<const_n_hits){
     
@@ -429,19 +434,15 @@ __global__ void kernel_correct_times_and_get_histo_per_vertex_shared(unsigned in
     // skip if thread is assigned to nonexistent vertex
     //if( vertex_index >= const_n_test_vertices || hit_index >= const_n_hits ) bin = -1;
 
-    unsigned int vertex_block = const_n_time_bins*vertex_index;
-
-    unsigned int vertex_block2 = const_n_PMTs*vertex_index;
-    unsigned int v1 = *(times + hit_index);
-    unsigned int v2 = *(ids + hit_index) + vertex_block2 - 1;
-    float v3 = *(times_of_flight + v2);
-    //if(blockIdx.x==0)
-    //	printf("v3=%f\n", v3);
-    unsigned int v4 = (v1 - v3 + const_time_offset)/const_time_step_size;
+    v1 = *(times + hit_index);
+    v2 = *(ids + hit_index) + vertex_block2 - 1;
+    v3 = *(times_of_flight + v2);
+    v4 = (v1 - v3 + const_time_offset)/const_time_step_size;
 
     bin = (v4+vertex_block);
 
     atomicAdd(&temp[bin - time_offset],1);
+
     hit_index += stride;
 
   }
