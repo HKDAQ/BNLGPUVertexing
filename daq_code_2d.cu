@@ -663,7 +663,7 @@ int gpu_daq_initialize(){
   ///////////////////////
   // increase the L1 cache size, while reducing shared memory size //
   ///////////////////////
-  cudaThreadSetCacheConfig(cudaFuncCachePreferL1);
+  // cudaThreadSetCacheConfig(cudaFuncCachePreferL1);
 
   return 1;
 
