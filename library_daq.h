@@ -52,7 +52,7 @@ unsigned int grid_size;  // grid = (n cores) X (n threads / core)
 /// hits
 unsigned int time_offset;  // ns, offset to make times positive
 __constant__ unsigned int constant_time_offset;
-unsigned int n_time_bins; // number of time bins 
+unsigned int n_time_bins; // number of time bins // ideally, a multiple of 32; reduce it to 32k to reduce occupancy
 __constant__ unsigned int constant_n_time_bins;
 unsigned int n_direction_bins_theta; // number of direction bins 
 __constant__ unsigned int constant_n_direction_bins_theta;
