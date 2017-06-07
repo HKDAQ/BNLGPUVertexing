@@ -1,1 +1,1 @@
-hits/all_pmts_14per.txt
+hits/all_pmts_40per.txt
