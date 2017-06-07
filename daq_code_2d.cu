@@ -412,9 +412,9 @@ __global__ void kernel_correct_times_and_get_histo_per_vertex_shared(unsigned sh
   unsigned int bin;
   unsigned int time_offset = vertex_index*const_n_time_bins;
 
-  extern __shared__ unsigned short stemp[];
+  extern __shared__ unsigned int temp[];
   while( local_ihit<const_n_time_bins ){
-    stemp[local_ihit] = 0;
+    temp[local_ihit] = 0;
     local_ihit += stride_block;
   }
 
@@ -440,7 +440,7 @@ __global__ void kernel_correct_times_and_get_histo_per_vertex_shared(unsigned sh
 
     bin = (v4+vertex_block);
 
-    atomicAdd(&stemp[bin - time_offset],1);
+    atomicAdd(&temp[bin - time_offset],1);
     hit_index += stride;
 
   }
@@ -449,7 +449,7 @@ __global__ void kernel_correct_times_and_get_histo_per_vertex_shared(unsigned sh
 
   local_ihit = local_ihit_initial;
   while( local_ihit<const_n_time_bins ){
-    atomicAdd( &ct[local_ihit+time_offset], stemp[local_ihit]);
+    ct[local_ihit+time_offset] += temp[local_ihit];
     local_ihit += stride_block;
   }
 
@@ -750,6 +750,8 @@ int gpu_daq_execute(){
     ////////////////////
     if( use_timing )
       start_cuda_clock();
+
+    /*
     if( correct_mode == 0 ){
       printf(" --- execute kernel to correct times and get n pmts per time bin \n");
       kernel_correct_times_and_get_n_pmts_per_time_bin<<<number_of_kernel_blocks_3d,number_of_threads_per_block_3d>>>(device_n_pmts_per_time_bin);
@@ -853,7 +855,8 @@ int gpu_daq_execute(){
       kernel_histo_per_vertex_shared<<<number_of_kernel_blocks_3d,number_of_threads_per_block_3d,n_time_bins*sizeof(unsigned int)>>>(device_time_bin_of_hit, device_n_pmts_per_time_bin);
       cudaThreadSynchronize();
       getLastCudaError("kernel_histo_one_thread_one_vertex execution failed\n");
-    }else if( correct_mode == 8 ){
+      } else*/
+    if( correct_mode == 8 ){
       setup_threads_for_histo_per(n_test_vertices);
       printf(" --- execute kernel to correct times and get n pmts per time bin \n");
       kernel_correct_times_and_get_histo_per_vertex_shared<<<number_of_kernel_blocks_3d,number_of_threads_per_block_3d,n_time_bins*sizeof(unsigned int)>>>
@@ -908,7 +911,7 @@ int gpu_daq_execute(){
     if( correct_mode != 9 ){
       kernel_find_vertex_with_max_npmts_in_timebin<<<number_of_kernel_blocks,number_of_threads_per_block>>>(device_n_pmts_per_time_bin, device_max_number_of_pmts_in_time_bin, device_vertex_with_max_n_pmts);
     }else{
-      kernel_find_vertex_with_max_npmts_in_timebin_and_directionbin<<<number_of_kernel_blocks,number_of_threads_per_block>>>(device_n_pmts_per_time_bin_and_direction_bin, device_max_number_of_pmts_in_time_bin, device_vertex_with_max_n_pmts);
+      //kernel_find_vertex_with_max_npmts_in_timebin_and_directionbin<<<number_of_kernel_blocks,number_of_threads_per_block>>>(device_n_pmts_per_time_bin_and_direction_bin, device_max_number_of_pmts_in_time_bin, device_vertex_with_max_n_pmts);
     }
     getLastCudaError("candidates_kernel execution failed\n");
     if( use_timing )

@@ -134,7 +134,7 @@ unsigned int nhits_window;
 int n_events;
 
 
-__global__ void kernel_find_vertex_with_max_npmts_in_timebin(unsigned short * np, unsigned int * mnp, unsigned int * vmnp);
+__global__ void kernel_find_vertex_with_max_npmts_in_timebin(unsigned short * np, unsigned short * mnp, unsigned int * vmnp);
 __global__ void kernel_find_vertex_with_max_npmts_in_timebin_and_directionbin(unsigned int * np, unsigned int * mnp, unsigned int * vmnp);
 
 unsigned int read_number_of_input_hits();
@@ -928,7 +928,7 @@ void allocate_candidates_memory_on_host(){
 
   printf(" --- allocate candidates memory on host \n");
 
-  host_max_number_of_pmts_in_time_bin = (unsigned int *)malloc(n_time_bins*sizeof(unsigned int));
+  host_max_number_of_pmts_in_time_bin = (unsigned short *)malloc(n_time_bins*sizeof(unsigned short));
   host_vertex_with_max_n_pmts = (unsigned int *)malloc(n_time_bins*sizeof(unsigned int));
 
   return;
@@ -940,7 +940,7 @@ void allocate_candidates_memory_on_device(){
   printf(" --- allocate candidates memory on device \n");
 
   check_cudamalloc_unsigned_int(n_time_bins);
-  checkCudaErrors(cudaMalloc((void **)&device_max_number_of_pmts_in_time_bin, n_time_bins*sizeof(unsigned int)));
+  checkCudaErrors(cudaMalloc((void **)&device_max_number_of_pmts_in_time_bin, n_time_bins*sizeof(unsigned short)));
 
   check_cudamalloc_unsigned_int(n_time_bins);
   checkCudaErrors(cudaMalloc((void **)&device_vertex_with_max_n_pmts, n_time_bins*sizeof(unsigned int)));
@@ -1425,7 +1425,7 @@ void print_gpu_properties(){
 }
 
 
-__global__ void kernel_find_vertex_with_max_npmts_in_timebin(unsigned short * np, unsigned int * mnp, unsigned int * vmnp){
+__global__ void kernel_find_vertex_with_max_npmts_in_timebin(unsigned short * np, unsigned short * mnp, unsigned int * vmnp){
 
 
   // get unique id for each thread in each block == time bin
@@ -1437,7 +1437,7 @@ __global__ void kernel_find_vertex_with_max_npmts_in_timebin(unsigned short * np
 
   unsigned int number_of_pmts_in_time_bin = 0;
   unsigned int time_index;
-  unsigned int max_number_of_pmts_in_time_bin=0;
+  unsigned short max_number_of_pmts_in_time_bin=0;
   unsigned int vertex_with_max_n_pmts = 0;
 
   for(unsigned int iv=0;iv<constant_n_test_vertices;iv++) { // loop over test vertices
