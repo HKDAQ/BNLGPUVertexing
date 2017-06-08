@@ -429,9 +429,9 @@ __global__ void kernel_correct_times_and_get_histo_per_vertex_shared(unsigned in
     unsigned int vertex_block = const_n_time_bins*vertex_index;
 
     unsigned int vertex_block2 = const_n_PMTs*vertex_index;
-    unsigned int v1 = *(times + hit_index);
+    unsigned int v1 = __ldg(times + hit_index);
     unsigned int v2 = *(ids + hit_index) + vertex_block2 - 1;
-    float v3 = *(times_of_flight + v2);
+    float v3 = __ldg(times_of_flight + v2);
     //if(blockIdx.x==0)
     // printf("v3=%f\n", v3);
     unsigned int v4 = (v1 - v3 + const_time_offset)/const_time_step_size;
@@ -852,7 +852,8 @@ int gpu_daq_execute(){
       cudaThreadSynchronize();
       getLastCudaError("kernel_histo_one_thread_one_vertex execution failed\n");
     }else if( correct_mode == 8 ){
-      cudaThreadSetCacheConfig(cudaFuncCachePreferL1);
+      //cudaThreadSetCacheConfig(cudaFuncCachePreferL1);
+      //cudaDeviceSetSharedMemConfig(cudaSharedMemBankSizeFourByte);
       setup_threads_for_histo_per(n_test_vertices);
       printf(" --- execute kernel to correct times and get n pmts per time bin \n");
       kernel_correct_times_and_get_histo_per_vertex_shared<<<number_of_kernel_blocks_3d,number_of_threads_per_block_3d,n_time_bins*sizeof(unsigned int)>>>
