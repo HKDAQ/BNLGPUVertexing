@@ -15,7 +15,7 @@
 
 
 // CUDA = Computer Device Unified Architecture
-__device__ int get_time_bin_for_vertex_and_hit_v1(unsigned int* times, unsigned int* ids, float* times_of_flight, 
+__device__ int get_time_bin_for_vertex_and_hit_v1(unsigned int* times, unsigned int* ids, unsigned short* times_of_flight, 
 		unsigned int vertex_index, unsigned int hit_index, 
    		unsigned int const_n_test_vertices, unsigned int const_n_hits, unsigned int const_n_time_bins, 
 		unsigned int const_n_PMTs, offset_t const_time_offset, unsigned int const_time_step_size);
@@ -31,7 +31,7 @@ __device__ int get_time_bin_for_vertex_and_hit(unsigned int vertex_index, unsign
 __global__ void kernel_histo_stride_2d( unsigned int *ct, unsigned int *histo);
 __global__ void kernel_histo_per_vertex( unsigned int *ct, unsigned int *histo);
 __global__ void kernel_histo_per_vertex_shared( unsigned int *ct, unsigned int *histo);
-__global__ void kernel_correct_times_and_get_histo_per_vertex_shared(histogram_t *ct, unsigned int* times, unsigned int* ids, float* times_of_flight,
+__global__ void kernel_correct_times_and_get_histo_per_vertex_shared(histogram_t *ct, unsigned int* times, unsigned int* ids, unsigned short* times_of_flight,
 				 unsigned int const_n_test_vertices, unsigned int const_n_time_bins, unsigned int const_n_hits,
      				 unsigned int const_n_PMTs, offset_t const_time_offset, unsigned int const_time_step_size);
 
@@ -186,7 +186,7 @@ __device__ int get_time_bin_for_vertex_and_hit(unsigned int vertex_index, unsign
 
 }
 
-__device__ int get_time_bin_for_vertex_and_hit_v1(unsigned int* times, unsigned int* ids, float* times_of_flight,
+__device__ int get_time_bin_for_vertex_and_hit_v1(unsigned int* times, unsigned int* ids, unsigned short* times_of_flight,
 		unsigned int vertex_index, unsigned int hit_index, 
    		unsigned int const_n_test_vertices, unsigned int const_n_hits, unsigned int const_n_time_bins, 
 		unsigned int const_n_PMTs, offset_t const_time_offset, unsigned int const_time_step_size){
@@ -202,7 +202,7 @@ __device__ int get_time_bin_for_vertex_and_hit_v1(unsigned int* times, unsigned 
   unsigned int vertex_block2 = const_n_PMTs*vertex_index;
   unsigned int v1 = *(times + hit_index);
   unsigned int v2 = *(ids + hit_index) + vertex_block2 - 1;
-  float v3 = *(times_of_flight + v2);
+  unsigned short v3 = *(times_of_flight + v2);
   unsigned int v4 = (v1 - v3 + const_time_offset)/const_time_step_size;
 
   return (v4+vertex_block);
@@ -396,7 +396,7 @@ __global__ void kernel_histo_per_vertex_shared( unsigned int *ct, unsigned int *
 
 }
 
-__global__ void kernel_correct_times_and_get_histo_per_vertex_shared(histogram_t *ct, unsigned int* times, unsigned int* ids, float* times_of_flight,
+__global__ void kernel_correct_times_and_get_histo_per_vertex_shared(histogram_t *ct, unsigned int* times, unsigned int* ids, unsigned short* times_of_flight,
      unsigned int const_n_test_vertices, unsigned int const_n_time_bins, unsigned int const_n_hits, 
      unsigned int const_n_PMTs, offset_t const_time_offset, unsigned int const_time_step_size)
 {
@@ -419,7 +419,7 @@ __global__ void kernel_correct_times_and_get_histo_per_vertex_shared(histogram_t
   unsigned int vertex_block = const_n_time_bins*vertex_index;
   unsigned int vertex_block2 = const_n_PMTs*vertex_index;
   unsigned int v1, v2, v4;
-  float v3;
+  unsigned short v3;
   while( hit_index<const_n_hits){
     v1 = __ldg(times + hit_index);
     v2 = *(ids + hit_index) + vertex_block2 - 1;

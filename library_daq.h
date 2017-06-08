@@ -16,7 +16,7 @@
 #include <thrust/sort.h>
 #include <thrust/device_ptr.h>
 
-typedef unsigned int offset_t;
+typedef unsigned short offset_t;
 
 /////////
 // define variable types
@@ -99,11 +99,11 @@ double speed_light_water;
 double cerenkov_angle_water;
 double twopi;
 bool cylindrical_grid;
-float *device_times_of_flight; // time of flight between a vertex and a pmt
-float *host_times_of_flight;
+unsigned short *device_times_of_flight; // time of flight between a vertex and a pmt
+unsigned short *host_times_of_flight;
 bool *device_directions_for_vertex_and_pmt; // test directions for vertex and pmt
 bool *host_directions_for_vertex_and_pmt;
-texture<float, 1, cudaReadModeElementType> tex_times_of_flight;
+texture<unsigned short, 1, cudaReadModeElementType> tex_times_of_flight;
 //texture<bool, 1, cudaReadModeElementType> tex_directions_for_vertex_and_pmt;
 // triggers
 std::vector<std::pair<unsigned int,unsigned int> > candidate_trigger_pair_vertex_time;  // pair = (v, t) = (a vertex, a time at the end of the 2nd of two coalesced bins)
@@ -352,7 +352,7 @@ void print_times_of_flight(){
     printf(" ( ");
     for(unsigned int ip=0; ip<n_PMTs; ip++){
       distance_index = get_distance_index(ip + 1, n_PMTs*iv);
-      printf(" %f ", host_times_of_flight[distance_index]);
+      printf(" %d ", host_times_of_flight[distance_index]);
     }
     printf(" ) \n");
   }
@@ -790,8 +790,8 @@ bool read_the_input(){
 void allocate_tofs_memory_on_device(){
 
   printf(" --- allocate memory tofs \n");
-  check_cudamalloc_float(n_test_vertices*n_PMTs);
-  checkCudaErrors(cudaMalloc((void **)&device_times_of_flight, n_test_vertices*n_PMTs*sizeof(float)));
+  check_cudamalloc_unsigned_short(n_test_vertices*n_PMTs);
+  checkCudaErrors(cudaMalloc((void **)&device_times_of_flight, n_test_vertices*n_PMTs*sizeof(unsigned short)));
   /*
   if( n_hits*n_test_vertices > available_memory ){
     printf(" cannot allocate vector of %d, available_memory %d \n", n_hits*n_test_vertices, available_memory);
@@ -979,7 +979,7 @@ void allocate_candidates_memory_on_device(){
 void make_table_of_tofs(){
 
   printf(" --- fill times_of_flight \n");
-  host_times_of_flight = (float*)malloc(n_test_vertices*n_PMTs * sizeof(double));
+  host_times_of_flight = (unsigned short*)malloc(n_test_vertices*n_PMTs * sizeof(unsigned short));
   printf(" speed_light_water %f \n", speed_light_water);
   unsigned int distance_index;
   time_offset = 0.;
@@ -1051,7 +1051,7 @@ void fill_tofs_memory_on_device(){
   printf(" --- copy tofs from host to device \n");
   checkCudaErrors(cudaMemcpy(device_times_of_flight,
 			     host_times_of_flight,
-			     n_test_vertices*n_PMTs*sizeof(float),
+			     n_test_vertices*n_PMTs*sizeof(unsigned short),
 			     cudaMemcpyHostToDevice));
   checkCudaErrors( cudaMemcpyToSymbol(constant_time_step_size, &time_step_size, sizeof(time_step_size)) );
   checkCudaErrors( cudaMemcpyToSymbol(constant_n_test_vertices, &n_test_vertices, sizeof(n_test_vertices)) );
@@ -1059,7 +1059,7 @@ void fill_tofs_memory_on_device(){
   checkCudaErrors( cudaMemcpyToSymbol(constant_n_PMTs, &n_PMTs, sizeof(n_PMTs)) );
 
   // Bind the array to the texture
-  checkCudaErrors(cudaBindTexture(0,tex_times_of_flight, device_times_of_flight, n_test_vertices*n_PMTs*sizeof(float)));
+  checkCudaErrors(cudaBindTexture(0,tex_times_of_flight, device_times_of_flight, n_test_vertices*n_PMTs*sizeof(unsigned short)));
   
 
 
