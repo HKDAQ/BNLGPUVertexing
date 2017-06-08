@@ -271,6 +271,8 @@ int plot_vertices(const char * fitresultfile, const char * truevertexfile, const
 
   double limit = 3700./4.;
 
+  int ntruthmatched = 0;
+  
   for( int i=0; i<ntruevertex; i++){
     true_vertices_x.Fill(true_vtx[i].x);
     true_vertices_y.Fill(true_vtx[i].y);
@@ -302,9 +304,16 @@ int plot_vertices(const char * fitresultfile, const char * truevertexfile, const
       zone = 8;
     }
     
-
+  
     for( int j=0; j<nvertex; j++){
+      
       if( true_vtx[i].ev == vtx[j].ev ){
+	//do some crude truth matching
+	double distancediff = sqrt(pow(vtx[j].x - true_vtx[i].x, 2) + pow(vtx[j].y - true_vtx[i].y, 2) + pow(vtx[j].z - true_vtx[i].z, 2));
+	double timediff = abs(vtx[j].t - true_vtx[i].t);
+	if(timediff < 500 && distancediff < 1500)
+	  ntruthmatched++;
+
 	residual_vertices_x.Fill(vtx[j].x - true_vtx[i].x);
 
 	residual_vertices_x_zone[zone]->Fill(vtx[j].x - true_vtx[i].x);
@@ -354,6 +363,8 @@ int plot_vertices(const char * fitresultfile, const char * truevertexfile, const
     }
 
   }
+
+  cout << "TRUTH MATCHING\t" << ntruthmatched << endl;
 
   TProfile* p_residual_vertices_s_t = residual_vertices_s_t.ProfileX(); 
   p_residual_vertices_s_t->GetXaxis()->SetTitle(" residual t [ns]");
