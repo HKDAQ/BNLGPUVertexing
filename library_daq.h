@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include "build.h"
+
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -15,7 +17,13 @@
 /////////
 // define variable types
 /////////
+#if defined __HISTOGRAM_UCHAR__
+typedef unsigned char histogram_t;
+#elif defined __HISTOGRAM_USHORT__
 typedef unsigned short histogram_t;
+#elif defined __HISTOGRAM_UINT__
+typedef unsigned int histogram_t;
+#endif
 
 /////////////////////////////
 // define global variables //
@@ -211,6 +219,8 @@ void read_user_parameters();
 void read_user_parameters_nhits();
 void check_cudamalloc_float(unsigned int size);
 void check_cudamalloc_int(unsigned int size);
+void check_cudamalloc_unsigned_short(unsigned int size);
+void check_cudamalloc_unsigned_char(unsigned int size);
 void check_cudamalloc_unsigned_int(unsigned int size);
 void check_cudamalloc_bool(unsigned int size);
 void setup_threads_for_histo(unsigned int n);
@@ -944,7 +954,13 @@ void allocate_candidates_memory_on_device(){
 
   printf(" --- allocate candidates memory on device \n");
 
+#if defined __HISTOGRAM_UCHAR__
+  check_cudamalloc_unsigned_char(n_time_bins);
+#elif defined __HISTOGRAM_USHORT__
+  check_cudamalloc_unsigned_short(n_time_bins);
+#elif defined __HISTOGRAM_UINT__
   check_cudamalloc_unsigned_int(n_time_bins);
+#endif
   checkCudaErrors(cudaMalloc((void **)&device_max_number_of_pmts_in_time_bin, n_time_bins*sizeof(histogram_t)));
 
   check_cudamalloc_unsigned_int(n_time_bins);
@@ -1895,6 +1911,30 @@ void check_cudamalloc_unsigned_int(unsigned int size){
 
 }
 
+
+void check_cudamalloc_unsigned_short(unsigned int size){
+
+  unsigned int bytes_per_unsigned_short = 2;
+  size_t available_memory, total_memory;
+  cudaMemGetInfo(&available_memory, &total_memory);
+  if( size*bytes_per_unsigned_short > available_memory*1000/1024 ){
+    printf(" cannot allocate %d unsigned_shorts, or %d B, available %d B \n", 
+	   size, size*bytes_per_unsigned_short, available_memory*1000/1024);
+  }
+
+}
+
+void check_cudamalloc_unsigned_char(unsigned int size){
+
+  unsigned int bytes_per_unsigned_char = 1;
+  size_t available_memory, total_memory;
+  cudaMemGetInfo(&available_memory, &total_memory);
+  if( size*bytes_per_unsigned_char > available_memory*1000/1024 ){
+    printf(" cannot allocate %d unsigned_chars, or %d B, available %d B \n", 
+	   size, size*bytes_per_unsigned_char, available_memory*1000/1024);
+  }
+
+}
 
 void check_cudamalloc_bool(unsigned int size){
 
