@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include "build.h"
+
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -15,6 +17,17 @@
 #include <thrust/device_ptr.h>
 
 typedef unsigned int offset_t;
+
+/////////
+// define variable types
+/////////
+#if defined __HISTOGRAM_UCHAR__
+typedef unsigned char histogram_t;
+#elif defined __HISTOGRAM_USHORT__
+typedef unsigned short histogram_t;
+#elif defined __HISTOGRAM_UINT__
+typedef unsigned int histogram_t;
+#endif
 
 /////////////////////////////
 // define global variables //
@@ -74,7 +87,7 @@ texture<unsigned int, 1, cudaReadModeElementType> tex_times;
 unsigned int * host_time_bin_of_hit;
 unsigned int * device_time_bin_of_hit;
 // npmts per time bin
-unsigned int * device_n_pmts_per_time_bin; // number of active pmts in a time bin
+histogram_t * device_n_pmts_per_time_bin; // number of active pmts in a time bin
 unsigned int * host_n_pmts_per_time_bin;
 unsigned int * device_n_pmts_nhits; // number of active pmts
 unsigned int * host_n_pmts_nhits;
@@ -108,8 +121,8 @@ cudaEvent_t start, stop, total_start, total_stop;
 bool output_txt;
 unsigned int correct_mode;
 // find candidates
-unsigned int * host_max_number_of_pmts_in_time_bin;
-unsigned int * device_max_number_of_pmts_in_time_bin;
+histogram_t * host_max_number_of_pmts_in_time_bin;
+histogram_t * device_max_number_of_pmts_in_time_bin;
 unsigned int *  host_vertex_with_max_n_pmts;
 unsigned int *  device_vertex_with_max_n_pmts;
 // gpu properties
@@ -138,7 +151,7 @@ unsigned int nhits_window;
 int n_events;
 
 
-__global__ void kernel_find_vertex_with_max_npmts_in_timebin(unsigned int * np, unsigned int * mnp, unsigned int * vmnp);
+__global__ void kernel_find_vertex_with_max_npmts_in_timebin(histogram_t * np, histogram_t * mnp, unsigned int * vmnp);
 __global__ void kernel_find_vertex_with_max_npmts_in_timebin_and_directionbin(unsigned int * np, unsigned int * mnp, unsigned int * vmnp);
 
 unsigned int read_number_of_input_hits();
@@ -210,6 +223,8 @@ void read_user_parameters();
 void read_user_parameters_nhits();
 void check_cudamalloc_float(unsigned int size);
 void check_cudamalloc_int(unsigned int size);
+void check_cudamalloc_unsigned_short(unsigned int size);
+void check_cudamalloc_unsigned_char(unsigned int size);
 void check_cudamalloc_unsigned_int(unsigned int size);
 void check_cudamalloc_bool(unsigned int size);
 void setup_threads_for_histo(unsigned int n);
@@ -934,7 +949,7 @@ void allocate_candidates_memory_on_host(){
 
   printf(" --- allocate candidates memory on host \n");
 
-  host_max_number_of_pmts_in_time_bin = (unsigned int *)malloc(n_time_bins*sizeof(unsigned int));
+  host_max_number_of_pmts_in_time_bin = (histogram_t *)malloc(n_time_bins*sizeof(histogram_t));
   host_vertex_with_max_n_pmts = (unsigned int *)malloc(n_time_bins*sizeof(unsigned int));
 
   return;
@@ -945,8 +960,14 @@ void allocate_candidates_memory_on_device(){
 
   printf(" --- allocate candidates memory on device \n");
 
+#if defined __HISTOGRAM_UCHAR__
+  check_cudamalloc_unsigned_char(n_time_bins);
+#elif defined __HISTOGRAM_USHORT__
+  check_cudamalloc_unsigned_short(n_time_bins);
+#elif defined __HISTOGRAM_UINT__
   check_cudamalloc_unsigned_int(n_time_bins);
-  checkCudaErrors(cudaMalloc((void **)&device_max_number_of_pmts_in_time_bin, n_time_bins*sizeof(unsigned int)));
+#endif
+  checkCudaErrors(cudaMalloc((void **)&device_max_number_of_pmts_in_time_bin, n_time_bins*sizeof(histogram_t)));
 
   check_cudamalloc_unsigned_int(n_time_bins);
   checkCudaErrors(cudaMalloc((void **)&device_vertex_with_max_n_pmts, n_time_bins*sizeof(unsigned int)));
@@ -1437,7 +1458,7 @@ void print_gpu_properties(){
 }
 
 
-__global__ void kernel_find_vertex_with_max_npmts_in_timebin(unsigned int * np, unsigned int * mnp, unsigned int * vmnp){
+__global__ void kernel_find_vertex_with_max_npmts_in_timebin(histogram_t * np, histogram_t * mnp, unsigned int * vmnp){
 
 
   // get unique id for each thread in each block == time bin
@@ -1449,7 +1470,7 @@ __global__ void kernel_find_vertex_with_max_npmts_in_timebin(unsigned int * np, 
 
   unsigned int number_of_pmts_in_time_bin = 0;
   unsigned int time_index;
-  unsigned int max_number_of_pmts_in_time_bin=0;
+  histogram_t max_number_of_pmts_in_time_bin=0;
   unsigned int vertex_with_max_n_pmts = 0;
 
   for(unsigned int iv=0;iv<constant_n_test_vertices;iv++) { // loop over test vertices
@@ -1592,7 +1613,7 @@ void copy_candidates_from_device_to_host(){
 
   checkCudaErrors(cudaMemcpy(host_max_number_of_pmts_in_time_bin,
 			     device_max_number_of_pmts_in_time_bin,
-			     n_time_bins*sizeof(unsigned int),
+			     n_time_bins*sizeof(histogram_t),
 			     cudaMemcpyDeviceToHost));
   checkCudaErrors(cudaMemcpy(host_vertex_with_max_n_pmts,
 			     device_vertex_with_max_n_pmts,
@@ -1902,6 +1923,30 @@ void check_cudamalloc_unsigned_int(unsigned int size){
 
 }
 
+
+void check_cudamalloc_unsigned_short(unsigned int size){
+
+  unsigned int bytes_per_unsigned_short = 2;
+  size_t available_memory, total_memory;
+  cudaMemGetInfo(&available_memory, &total_memory);
+  if( size*bytes_per_unsigned_short > available_memory*1000/1024 ){
+    printf(" cannot allocate %d unsigned_shorts, or %d B, available %d B \n", 
+	   size, size*bytes_per_unsigned_short, available_memory*1000/1024);
+  }
+
+}
+
+void check_cudamalloc_unsigned_char(unsigned int size){
+
+  unsigned int bytes_per_unsigned_char = 1;
+  size_t available_memory, total_memory;
+  cudaMemGetInfo(&available_memory, &total_memory);
+  if( size*bytes_per_unsigned_char > available_memory*1000/1024 ){
+    printf(" cannot allocate %d unsigned_chars, or %d B, available %d B \n", 
+	   size, size*bytes_per_unsigned_char, available_memory*1000/1024);
+  }
+
+}
 
 void check_cudamalloc_bool(unsigned int size){
 
