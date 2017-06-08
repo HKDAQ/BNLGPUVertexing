@@ -449,7 +449,11 @@ __global__ void kernel_correct_times_and_get_histo_per_vertex_shared(histogram_t
 
   local_ihit = local_ihit_initial;
   while( local_ihit<const_n_time_bins ){
+#if defined __HISTOGRAM_UCHAR__
+    ct[local_ihit+time_offset] = min(255, ct[local_ihit+time_offset] + temp[local_ihit]);
+#else
     ct[local_ihit+time_offset] += temp[local_ihit];
+#endif
     local_ihit += stride_block;
   }
 
