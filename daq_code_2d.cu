@@ -419,7 +419,7 @@ __global__ void kernel_correct_times_and_get_histo_per_vertex_shared(histogram_t
   unsigned int vertex_block = const_n_time_bins*vertex_index;
   unsigned int vertex_block2 = const_n_PMTs*vertex_index;
   unsigned int v1, v2, v4;
-  unsigned short v3;
+  float v3;
   while( hit_index<const_n_hits){
     v1 = __ldg(times + hit_index);
     v2 = *(ids + hit_index) + vertex_block2 - 1;

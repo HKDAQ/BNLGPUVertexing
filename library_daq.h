@@ -987,8 +987,8 @@ void make_table_of_tofs(){
     for(unsigned int iv=0; iv<n_test_vertices; iv++){
       distance_index = get_distance_index(ip + 1, n_PMTs*iv);
       host_times_of_flight[distance_index] = sqrt(pow(vertex_x[iv] - PMT_x[ip],2) + pow(vertex_y[iv] - PMT_y[ip],2) + pow(vertex_z[iv] - PMT_z[ip],2))/speed_light_water;
-      if( host_times_of_flight[distance_index] > time_offset )
-	time_offset = host_times_of_flight[distance_index];
+      if( host_times_of_flight[distance_index] >= time_offset )
+	time_offset = host_times_of_flight[distance_index] + 1;
 
     }
   }
