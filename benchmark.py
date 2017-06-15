@@ -46,6 +46,7 @@ permutationDict['time_offset_type'] = [x for x in ['__TIME_OFFSET_USHORT__','__T
 permutationDict['v3_type']          = [x for x in ['__V3_UINT__','__V3_FLOAT__']]
 permutationDict['pmt_id_type']      = [x for x in ['__PMT_ID_USHORT__','__PMT_ID_UINT__']]
 permutationDict['l1cache_size']     = [x for x in ['__INCREASED_L1_CACHE__','']]
+permutationDict['ldg']              = [x for x in ['__USE_LDG__','']]
 
 # create a list of dictionaries for each permutation of the parameter values
 permutationDictList = [ OrderedDict(zip(permutationDict, v)) for v in product(*permutationDict.values()) ]
@@ -97,7 +98,7 @@ for id, (dataset, datasetstub) in enumerate(datasets, 1):
         #compile the code
         if subprocess_call(['make','clean']):
             break #continue
-        if subprocess_call(['make']):
+        if subprocess_call(['make','daq_code_l1cache' if stub.find('INCREASEDL1CACHE') else 'daq_code']):
             break #continue
         #run the code
         filestub = 'trig' + datasetstub + buildfilestub

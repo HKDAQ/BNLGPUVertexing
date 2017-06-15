@@ -19,6 +19,8 @@
 //#define __PMT_ID_USHORT__
 #define __PMT_ID_UINT__
 
+#define __USE_LDG__
+
 //#define __INCREASED_L1_CACHE__
 
 #endif //__BUILD_H__
