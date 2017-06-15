@@ -16,8 +16,6 @@
 #include <thrust/sort.h>
 #include <thrust/device_ptr.h>
 
-typedef unsigned short offset_t;
-
 /////////
 // define variable types
 /////////
@@ -27,6 +25,28 @@ typedef unsigned char histogram_t;
 typedef unsigned short histogram_t;
 #elif defined __HISTOGRAM_UINT__
 typedef unsigned int histogram_t;
+#endif
+
+#if defined __TIME_OFFSET_USHORT__
+typedef unsigned short offset_t;
+#elif defined __TIME_OFFSET_UINT__
+typedef unsigned int offset_t;
+#elif defined __TIME_OFFSET_FLOAT__
+typedef float offset_t;
+#endif
+
+#if defined __TOF_TABLE_USHORT__
+typedef unsigned short tof_table_t;
+#elif defined __TOF_TABLE_UINT__
+typedef unsigned int tof_table_t;
+#elif defined __TOF_TABLE_FLOAT__
+typedef float tof_table_t;
+#endif
+
+#if defined __PMT_ID_USHORT__
+typedef unsigned short pmt_id_t;
+#elif defined __PMT_ID_UINT__
+typedef unsigned int pmt_id_t;
 #endif
 
 /////////////////////////////
@@ -77,9 +97,9 @@ unsigned int n_direction_bins; // number of direction bins
 __constant__ unsigned int constant_n_direction_bins;
 unsigned int n_hits; // number of input hits from the detector
 __constant__ unsigned int constant_n_hits;
-unsigned int * host_ids; // pmt id of a hit
-unsigned int *device_ids;
-texture<unsigned int, 1, cudaReadModeElementType> tex_ids;
+pmt_id_t * host_ids; // pmt id of a hit
+pmt_id_t *device_ids;
+texture<pmt_id_t, 1, cudaReadModeElementType> tex_ids;
 unsigned int * host_times;  // time of a hit
 unsigned int *device_times;
 texture<unsigned int, 1, cudaReadModeElementType> tex_times;
@@ -99,11 +119,11 @@ double speed_light_water;
 double cerenkov_angle_water;
 double twopi;
 bool cylindrical_grid;
-unsigned short *device_times_of_flight; // time of flight between a vertex and a pmt
-unsigned short *host_times_of_flight;
+tof_table_t *device_times_of_flight; // time of flight between a vertex and a pmt
+tof_table_t *host_times_of_flight;
 bool *device_directions_for_vertex_and_pmt; // test directions for vertex and pmt
 bool *host_directions_for_vertex_and_pmt;
-texture<unsigned short, 1, cudaReadModeElementType> tex_times_of_flight;
+texture<tof_table_t, 1, cudaReadModeElementType> tex_times_of_flight;
 //texture<bool, 1, cudaReadModeElementType> tex_directions_for_vertex_and_pmt;
 // triggers
 std::vector<std::pair<unsigned int,unsigned int> > candidate_trigger_pair_vertex_time;  // pair = (v, t) = (a vertex, a time at the end of the 2nd of two coalesced bins)
@@ -772,7 +792,7 @@ bool read_the_input(){
   n_hits = read_number_of_input_hits();
   if( !n_hits ) return false;
   printf(" input contains %d hits \n", n_hits);
-  host_ids = (unsigned int *)malloc(n_hits*sizeof(unsigned int));
+  host_ids = (pmt_id_t *)malloc(n_hits*sizeof(pmt_id_t));
   host_times = (unsigned int *)malloc(n_hits*sizeof(unsigned int));
   if( !read_input() ) return false;
   //time_offset = 600.; // set to constant to match trevor running
@@ -790,8 +810,14 @@ bool read_the_input(){
 void allocate_tofs_memory_on_device(){
 
   printf(" --- allocate memory tofs \n");
+#if defined __TOF_TABLE_USHORT__
   check_cudamalloc_unsigned_short(n_test_vertices*n_PMTs);
-  checkCudaErrors(cudaMalloc((void **)&device_times_of_flight, n_test_vertices*n_PMTs*sizeof(unsigned short)));
+#elif defined __TOF_TABLE_UINT__
+  check_cudamalloc_unsigned_int(n_test_vertices*n_PMTs);
+#elif defined __TOF_TABLE_FLOAT__
+  check_cudamalloc_float(n_test_vertices*n_PMTs);
+#endif
+  checkCudaErrors(cudaMalloc((void **)&device_times_of_flight, n_test_vertices*n_PMTs*sizeof(tof_table_t)));
   /*
   if( n_hits*n_test_vertices > available_memory ){
     printf(" cannot allocate vector of %d, available_memory %d \n", n_hits*n_test_vertices, available_memory);
@@ -837,8 +863,12 @@ void allocate_correct_memory_on_device(){
     return 0;
   }
   */
+#if defined __PMT_ID_USHORT__
+  check_cudamalloc_unsigned_short(n_hits);
+#elif defined __PMT_ID_UINT__
   check_cudamalloc_unsigned_int(n_hits);
-  checkCudaErrors(cudaMalloc((void **)&device_ids, n_hits*sizeof(unsigned int)));
+#endif
+  checkCudaErrors(cudaMalloc((void **)&device_ids, n_hits*sizeof(pmt_id_t)));
 
   check_cudamalloc_unsigned_int(n_hits);
   checkCudaErrors(cudaMalloc((void **)&device_times, n_hits*sizeof(unsigned int)));
@@ -922,8 +952,12 @@ void allocate_correct_memory_on_device_nhits(){
     return 0;
   }
   */
+#if defined __PMT_ID_USHORT__
+  check_cudamalloc_unsigned_short(n_hits);
+#elif defined __PMT_ID_UINT__
   check_cudamalloc_unsigned_int(n_hits);
-  checkCudaErrors(cudaMalloc((void **)&device_ids, n_hits*sizeof(unsigned int)));
+#endif
+  checkCudaErrors(cudaMalloc((void **)&device_ids, n_hits*sizeof(pmt_id_t)));
 
   check_cudamalloc_unsigned_int(n_hits);
   checkCudaErrors(cudaMalloc((void **)&device_times, n_hits*sizeof(unsigned int)));
@@ -979,7 +1013,7 @@ void allocate_candidates_memory_on_device(){
 void make_table_of_tofs(){
 
   printf(" --- fill times_of_flight \n");
-  host_times_of_flight = (unsigned short*)malloc(n_test_vertices*n_PMTs * sizeof(unsigned short));
+  host_times_of_flight = (tof_table_t*)malloc(n_test_vertices*n_PMTs * sizeof(tof_table_t));
   printf(" speed_light_water %f \n", speed_light_water);
   unsigned int distance_index;
   time_offset = 0.;
@@ -988,8 +1022,11 @@ void make_table_of_tofs(){
       distance_index = get_distance_index(ip + 1, n_PMTs*iv);
       host_times_of_flight[distance_index] = sqrt(pow(vertex_x[iv] - PMT_x[ip],2) + pow(vertex_y[iv] - PMT_y[ip],2) + pow(vertex_z[iv] - PMT_z[ip],2))/speed_light_water;
       if( host_times_of_flight[distance_index] >= time_offset )
+#if !defined __TOF_TABLE_FLOAT__
 	time_offset = host_times_of_flight[distance_index] + 1;
-
+#else
+        time_offset = host_times_of_flight[distance_index];
+#endif
     }
   }
   //print_times_of_flight();
@@ -1051,7 +1088,7 @@ void fill_tofs_memory_on_device(){
   printf(" --- copy tofs from host to device \n");
   checkCudaErrors(cudaMemcpy(device_times_of_flight,
 			     host_times_of_flight,
-			     n_test_vertices*n_PMTs*sizeof(unsigned short),
+			     n_test_vertices*n_PMTs*sizeof(tof_table_t),
 			     cudaMemcpyHostToDevice));
   checkCudaErrors( cudaMemcpyToSymbol(constant_time_step_size, &time_step_size, sizeof(time_step_size)) );
   checkCudaErrors( cudaMemcpyToSymbol(constant_n_test_vertices, &n_test_vertices, sizeof(n_test_vertices)) );
@@ -1059,7 +1096,7 @@ void fill_tofs_memory_on_device(){
   checkCudaErrors( cudaMemcpyToSymbol(constant_n_PMTs, &n_PMTs, sizeof(n_PMTs)) );
 
   // Bind the array to the texture
-  checkCudaErrors(cudaBindTexture(0,tex_times_of_flight, device_times_of_flight, n_test_vertices*n_PMTs*sizeof(unsigned short)));
+  checkCudaErrors(cudaBindTexture(0,tex_times_of_flight, device_times_of_flight, n_test_vertices*n_PMTs*sizeof(tof_table_t)));
   
 
 
@@ -1103,7 +1140,7 @@ void fill_correct_memory_on_device(){
   printf(" --- copy from host to device \n");
   checkCudaErrors(cudaMemcpy(device_ids,
 			     host_ids,
-			     n_hits*sizeof(unsigned int),
+			     n_hits*sizeof(pmt_id_t),
 			     cudaMemcpyHostToDevice));
   checkCudaErrors(cudaMemcpy(device_times,
 			     host_times,
@@ -1111,16 +1148,25 @@ void fill_correct_memory_on_device(){
 			     cudaMemcpyHostToDevice));
   checkCudaErrors( cudaMemcpyToSymbol(constant_time_offset, &time_offset, sizeof(time_offset)) );
 
-  checkCudaErrors(cudaBindTexture(0,tex_ids, device_ids, n_hits*sizeof(unsigned int)));
+  checkCudaErrors(cudaBindTexture(0,tex_ids, device_ids, n_hits*sizeof(pmt_id_t)));
   checkCudaErrors(cudaBindTexture(0,tex_times, device_times, n_hits*sizeof(unsigned int)));
 
+#if defined __SORT_DATA_BY_PMT_ID__
   //wrap raw pointer with a device_ptr to use with Thrust functions
   thrust::device_ptr<unsigned int> dev_data_ptr(device_times);
-  thrust::device_ptr<unsigned int> dev_keys_ptr(device_ids);
+  thrust::device_ptr<pmt_id_t> dev_keys_ptr(device_ids);
 
   //use the device memory with a thrust call
   thrust::sort_by_key(dev_keys_ptr, dev_keys_ptr + n_hits, dev_data_ptr);
+#elif defined __SORT_DATA_BY_HIT_TIME__
+  //wrap raw pointer with a device_ptr to use with Thrust functions
+  thrust::device_ptr<unsigned int> dev_data_ptr(device_times);
+  thrust::device_ptr<pmt_id_t> dev_keys_ptr(device_ids);
 
+  //use the device memory with a thrust call
+  thrust::sort_by_key(dev_data_ptr, dev_data_ptr + n_hits, dev_keys_ptr);
+#endif
+  
   return;
 }
 

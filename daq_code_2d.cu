@@ -31,7 +31,7 @@ __device__ int get_time_bin_for_vertex_and_hit(unsigned int vertex_index, unsign
 __global__ void kernel_histo_stride_2d( unsigned int *ct, unsigned int *histo);
 __global__ void kernel_histo_per_vertex( unsigned int *ct, unsigned int *histo);
 __global__ void kernel_histo_per_vertex_shared( unsigned int *ct, unsigned int *histo);
-__global__ void kernel_correct_times_and_get_histo_per_vertex_shared(histogram_t *ct, unsigned int* times, unsigned int* ids, unsigned short* times_of_flight,
+__global__ void kernel_correct_times_and_get_histo_per_vertex_shared(histogram_t *ct, unsigned int* times, pmt_id_t* ids, tof_table_t* tof_table_t,
 				 unsigned int const_n_test_vertices, unsigned int const_n_time_bins, unsigned int const_n_hits,
      				 unsigned int const_n_PMTs, offset_t const_time_offset, unsigned int const_time_step_size);
 
@@ -396,7 +396,7 @@ __global__ void kernel_histo_per_vertex_shared( unsigned int *ct, unsigned int *
 
 }
 
-__global__ void kernel_correct_times_and_get_histo_per_vertex_shared(histogram_t *ct, unsigned int* times, unsigned int* ids, unsigned short* times_of_flight,
+__global__ void kernel_correct_times_and_get_histo_per_vertex_shared(histogram_t *ct, unsigned int* times, pmt_id_t* ids, tof_table_t* times_of_flight,
      unsigned int const_n_test_vertices, unsigned int const_n_time_bins, unsigned int const_n_hits, 
      unsigned int const_n_PMTs, offset_t const_time_offset, unsigned int const_time_step_size)
 {
@@ -419,11 +419,23 @@ __global__ void kernel_correct_times_and_get_histo_per_vertex_shared(histogram_t
   unsigned int vertex_block = const_n_time_bins*vertex_index;
   unsigned int vertex_block2 = const_n_PMTs*vertex_index;
   unsigned int v1, v2, v4;
+#if defined __V3_USHORT__
+  unsigned short v3;
+#elif defined __V3_UINT__
+  unsigned int v3;
+#elif defined __V3_FLOAT__
   float v3;
+#endif
   while( hit_index<const_n_hits){
+#if defined __USE_LDG__
     v1 = __ldg(times + hit_index);
-    v2 = *(ids + hit_index) + vertex_block2 - 1;
+    v2 = __ldg(ids + hit_index) + vertex_block2 - 1;
     v3 = __ldg(times_of_flight + v2);
+#else
+    v1 = *(times + hit_index);
+    v2 = *(ids + hit_index) + vertex_block2 - 1;
+    v3 = *(times_of_flight + v2);
+#endif
     v4 = (v1 - v3 + const_time_offset)/const_time_step_size;
     bin = (v4+vertex_block);
     atomicAdd(&temp[bin - time_offset],1);
@@ -647,8 +659,10 @@ int gpu_daq_initialize(){
   ///////////////////////
   // increase the L1 cache size, while reducing shared memory size //
   ///////////////////////
-  // cudaThreadSetCacheConfig(cudaFuncCachePreferL1);
-
+#if defined __INCREASED_L1_CACHE__
+  cudaThreadSetCacheConfig(cudaFuncCachePreferL1);
+#endif
+  
   return 1;
 
 }
