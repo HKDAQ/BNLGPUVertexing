@@ -43,10 +43,12 @@ permutationDict = OrderedDict()
 permutationDict['histogram_type']   = [x for x in ['__HISTOGRAM_UCHAR__','__HISTOGRAM_USHORT__','__HISTOGRAM_UINT__']]
 permutationDict['tof_table_type']   = [x for x in ['__TOF_TABLE_USHORT__','__TOF_TABLE_UINT__','__TOF_TABLE_FLOAT__']]
 permutationDict['time_offset_type'] = [x for x in ['__TIME_OFFSET_USHORT__','__TIME_OFFSET_UINT__','__TIME_OFFSET_FLOAT__']]
-permutationDict['v3_type']          = [x for x in ['__V3_UINT__','__V3_FLOAT__']]
+permutationDict['v3_type']          = [x for x in ['__V3_USHORT__','__V3_UINT__','__V3_FLOAT__']]
 permutationDict['pmt_id_type']      = [x for x in ['__PMT_ID_USHORT__','__PMT_ID_UINT__']]
 permutationDict['l1cache_size']     = [x for x in ['__INCREASED_L1_CACHE__','']]
 permutationDict['ldg']              = [x for x in ['__USE_LDG__','']]
+permutationDict['sort_data']        = [x for x in ['__SORT_DATA_BY_PMT_ID__','__SORT_DATA_BY_HIT_TIME__','']]
+
 
 # create a list of dictionaries for each permutation of the parameter values
 permutationDictList = [ OrderedDict(zip(permutationDict, v)) for v in product(*permutationDict.values()) ]

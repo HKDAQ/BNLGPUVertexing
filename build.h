@@ -13,11 +13,15 @@
 //#define __TIME_OFFSET_UINT__
 //#define __TIME_OFFSET_FLOAT__
 
+//#define __V3_USHORT__
 //#define __V3_UINT__
 #define __V3_FLOAT__
 
 //#define __PMT_ID_USHORT__
 #define __PMT_ID_UINT__
+
+#define __SORT_DATA_BY_PMT_ID__
+#define __SORT_DATA_BY_HIT_TIME__
 
 #define __USE_LDG__
 
