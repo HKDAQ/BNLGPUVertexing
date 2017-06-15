@@ -1468,12 +1468,16 @@ __global__ void kernel_find_vertex_with_max_npmts_in_timebin(histogram_t * np, h
   if( time_bin_index >= constant_n_time_bins ) return;
 
   //np is a histogram
-  // we want to search it to find the maximum (for each vertex) of sliding pairs of bins
+  // we want to search it to find the maximum (for each each time bin over vertices) of sliding pairs of bins, and find those above threshold
   // we can do this as:
-  //  1 - brute force: go through everything until the loop ends
-  //  2 - make the dual list, sort it, pick the first (i.e. highest) element
+  //  1 - brute force: go through everything until the loop ends.
+  //    - then copy ntimebins of memory off device to CPU
+  //    - then call choose_candidates_above_threshold() to find triggers above threshold
+  //  2 - make the list of added bin pairs, sort it, pick the elements until we go below threshold
+  //    - copy triggers off device to CPU
+  //    - NB. to do this, need to allocate memory differently (use nblocks=nvertices instead of ntimebins)
+  //       which involves different calls to different functions
 
-  //METHOD 1
   unsigned int number_of_pmts_in_time_bin = 0;
   unsigned int time_index;
   histogram_t max_number_of_pmts_in_time_bin=0;
@@ -1495,28 +1499,6 @@ __global__ void kernel_find_vertex_with_max_npmts_in_timebin(histogram_t * np, h
 
   mnp[time_bin_index] = max_number_of_pmts_in_time_bin;
   vmnp[time_bin_index] = vertex_with_max_n_pmts;
-
-  //METHOD 2
-  extern __shared__ unsigned int temp[];
-  for(unsigned int iv=0;iv<constant_n_test_vertices;iv++) {
-    //find the time bin to look in
-    time_index = time_bin_index + constant_n_time_bins*iv;
-    if( time_index >= constant_n_time_bins*constant_n_test_vertices - 1 ) continue;
-    //sum the number of hit PMTs in this time window and the next
-    temp[time_index] = np[time_index] + np[time_index+1];
-  }
-
-  //sort
-  //wrap raw pointer with a device_ptr to use with Thrust functions
-  thrust::device_ptr<unsigned int> dev_data_ptr(temp);
-  thrust::device_ptr<unsigned int> dev_keys_ptr(temp + );
-
-  //use the device memory with a thrust call
-  thrust::sort_by_key(dev_keys_ptr, dev_keys_ptr + n_hits, dev_data_ptr);
-
-  mnp[time_bin_index]  = *dev_keys_ptr;
-  vmnp[time_bin_index] = *dev_data_ptr;
-
 
   return;
 
