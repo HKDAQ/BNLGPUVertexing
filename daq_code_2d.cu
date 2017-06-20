@@ -467,7 +467,7 @@ int gpu_daq_initialize(){
 
 
   // initialise CUDA timing
-  use_timing = true;
+  use_timing = false;
   if( use_timing ){
     cudaEventCreate(&start);
     cudaEventCreate(&stop);

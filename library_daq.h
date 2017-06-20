@@ -1268,8 +1268,9 @@ void coalesce_triggers(){
      
   }
 
-  for(std::vector<std::pair<unsigned int,unsigned int> >::const_iterator itrigger=trigger_pair_vertex_time.begin(); itrigger != trigger_pair_vertex_time.end(); ++itrigger)
-    printf(" coalesced trigger timebin %d vertex index %d \n", itrigger->first, itrigger->second);
+  if(use_verbose)
+    for(std::vector<std::pair<unsigned int,unsigned int> >::const_iterator itrigger=trigger_pair_vertex_time.begin(); itrigger != trigger_pair_vertex_time.end(); ++itrigger)
+      printf(" coalesced trigger timebin %d vertex index %d \n", itrigger->first, itrigger->second);
 
   return;
 
