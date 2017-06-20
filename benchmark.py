@@ -6,8 +6,10 @@ from collections import OrderedDict
 from itertools import product
 from sys import stderr
 from os.path import expandvars
+from os import getcwd
 
 parser = ArgumentParser(description='setup soft links for data', formatter_class=ArgumentDefaultsHelpFormatter)
+parser.add_argument('--workdir', '-w', default=getcwd(), help='Where to store the output')
 parser.add_argument('--tag', '-t', default='gpu', help='Select a filename tag. For example, GPU type')
 args = parser.parse_args()
 
@@ -43,7 +45,8 @@ permutationDict = OrderedDict()
 permutationDict['histogram_type']   = [x for x in ['__HISTOGRAM_UCHAR__','__HISTOGRAM_USHORT__','__HISTOGRAM_UINT__']]
 permutationDict['tof_table_type']   = [x for x in ['__TOF_TABLE_USHORT__','__TOF_TABLE_UINT__','__TOF_TABLE_FLOAT__']]
 permutationDict['time_offset_type'] = [x for x in ['__TIME_OFFSET_USHORT__','__TIME_OFFSET_UINT__','__TIME_OFFSET_FLOAT__']]
-permutationDict['v3_type']          = [x for x in ['__V3_USHORT__','__V3_UINT__','__V3_FLOAT__']]
+#permutationDict['v3_type']          = [x for x in ['__V3_USHORT__','__V3_UINT__','__V3_FLOAT__']]
+permutationDict['v3_type']          = [x for x in ['__V3_UINT__','__V3_FLOAT__']]
 permutationDict['pmt_id_type']      = [x for x in ['__PMT_ID_USHORT__','__PMT_ID_UINT__']]
 permutationDict['l1cache_size']     = [x for x in ['__INCREASED_L1_CACHE__','']]
 permutationDict['ldg']              = [x for x in ['__USE_LDG__','']]
@@ -54,6 +57,10 @@ permutationDict['sort_data']        = [x for x in ['__SORT_DATA_BY_PMT_ID__','__
 permutationDictList = [ OrderedDict(zip(permutationDict, v)) for v in product(*permutationDict.values()) ]
 buildfiles = []
 for pDict in permutationDictList:
+    if pDict['time_offset_type'] == '__TIME_OFFSET_FLOAT__' and (pDict['tof_table_type'] == '__TOF_TABLE_USHORT__' or pDict['tof_table_type'] == '__TOF_TABLE_UINT__'):
+        continue
+    if pDict['time_offset_type'] == '__TIME_OFFSET_UINT__' and (pDict['tof_table_type'] == '__TOF_TABLE_USHORT__' or pDict['tof_table_type'] == '__TOF_TABLE_FLOAT__'):
+        continue    
     stub = ''
     buildfile = '#ifndef __BUILD_H__ \n' \
       '#define __BUILD_H__ \n'
@@ -99,20 +106,22 @@ for id, (dataset, datasetstub) in enumerate(datasets, 1):
             f.close()
         #compile the code
         if subprocess_call(['make','clean']):
-            break #continue
+            continue
         if subprocess_call(['make','daq_code_l1cache' if stub.find('INCREASEDL1CACHE') else 'daq_code']):
-            break #continue
+            continue
         #run the code
-        filestub = 'trig' + datasetstub + buildfilestub
+        filestub = args.workdir + '/trig' + datasetstub + buildfilestub
         print 'STUB', filestub
         outfile = open(filestub+'.out', 'w')
         errfile = open(filestub+'.err', 'w')
         if subprocess_call(['nvprof','-o',filestub+'.nvpp','./daq_code'], stdout=outfile, stderr=errfile):
-            break #continue
+            continue
         outfile.close()
         errfile.close()
         #run the code again, with more metrics
         if subprocess_call(['nvprof','--kernels','kernel_correct_times_and_get_histo_per_vertex_shared','--metrics','all','-o',filestub+'_met.nvpp','./daq_code']):
-            break #continue
-        break
+            continue
+        #copy output
+        move("all_hits_emerald_threshold_24.txt",filestub+"_threshold_24.txt")
+
         
